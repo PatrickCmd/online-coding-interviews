@@ -5,19 +5,28 @@
 
 # Default target - show help
 help:
-	@echo "📋 Available commands (delegates to frontend/):"
+	@echo "📋 Available commands (delegates to frontend/ and backend/):"
 	@echo ""
+	@echo "Frontend Commands:"
 	@echo "  make install        - Install frontend dependencies"
 	@echo "  make dev            - Start frontend development server"
 	@echo "  make build          - Build frontend for production"
 	@echo "  make preview        - Preview frontend production build"
 	@echo ""
+	@echo "Backend Commands:"
+	@echo "  make backend-install - Install backend dependencies"
+	@echo "  make backend-dev     - Start backend development server"
+	@echo "  make backend-test    - Run backend tests"
+	@echo "  make backend-docker  - Start backend with Docker"
+	@echo ""
+	@echo "Testing:"
 	@echo "  make test           - Run frontend tests"
 	@echo "  make test-ui        - Run frontend tests with UI"
 	@echo "  make test-coverage  - Run frontend tests with coverage"
 	@echo ""
-	@echo "  make clean          - Clean all artifacts"
-	@echo "  make setup          - Complete project setup"
+	@echo "Maintenance:"
+	@echo "  make clean          - Clean all artifacts (frontend + backend)"
+	@echo "  make setup          - Complete project setup (frontend + backend)"
 	@echo "  make verify         - Verify project health"
 	@echo ""
 
@@ -51,20 +60,10 @@ test-ui:
 	@echo "🧪 Running frontend tests with UI..."
 	cd frontend && $(MAKE) test-ui
 
-# Run tests with coverage
+# Run# Test with coverage
 test-coverage:
 	@echo "🧪 Running frontend tests with coverage..."
 	cd frontend && $(MAKE) test-coverage
-
-# Clean all
-clean:
-	@echo "🧹 Cleaning all artifacts..."
-	cd frontend && $(MAKE) clean
-
-# Setup project
-setup:
-	@echo "🔧 Setting up project..."
-	cd frontend && $(MAKE) setup
 
 # Verify project
 verify:
@@ -75,3 +74,54 @@ verify:
 ci:
 	@echo "🔄 Running CI pipeline..."
 	cd frontend && $(MAKE) ci
+	cd backend && $(MAKE) ci
+
+# Backend commands
+backend-install:
+	@echo "📦 Installing backend dependencies..."
+	cd backend && $(MAKE) install
+
+backend-dev:
+	@echo "🚀 Starting backend development server..."
+	cd backend && $(MAKE) dev
+
+backend-test:
+	@echo "🧪 Running backend tests..."
+	cd backend && $(MAKE) test
+
+backend-docker:
+	@echo "🐳 Starting backend with Docker..."
+	cd backend && $(MAKE) docker-up
+
+backend-clean:
+	@echo "🧹 Cleaning backend artifacts..."
+	cd backend && $(MAKE) clean
+
+# Full stack commands
+fullstack-dev:
+	@echo "🚀 Starting full stack (frontend + backend)..."
+	@echo "Starting backend..."
+	cd backend && $(MAKE) docker-up &
+	@echo "Starting frontend..."
+	cd frontend && $(MAKE) dev
+
+fullstack-test:
+	@echo "🧪 Running all tests (frontend + backend)..."
+	cd frontend && $(MAKE) test
+	cd backend && $(MAKE) test
+	@echo "✅ All tests complete!"
+
+# Override clean to clean both frontend and backend
+clean: 
+	@echo "🧹 Cleaning all artifacts..."
+	cd frontend && $(MAKE) clean
+	cd backend && $(MAKE) clean
+	@echo "✅ Cleanup complete!"
+
+# Override setup to setup both frontend and backend
+setup:
+	@echo "🔧 Setting up full project..."
+	cd frontend && $(MAKE) setup
+	cd backend && $(MAKE) setup
+	@echo "✅ Full project setup complete!"
+

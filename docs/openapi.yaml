@@ -1,0 +1,553 @@
+openapi: 3.0.3
+info:
+  title: CodeInterview API
+  description: |
+    REST API for the Online Coding Interview Platform.
+    
+    This API enables real-time collaborative coding interviews with features including:
+    - Session management (create, join, update, delete)
+    - Participant management (add, remove, update status)
+    - Code collaboration (save code snapshots, language switching)
+    - Real-time updates via WebSocket
+    
+    **Note**: Real-time collaboration events (code changes, user presence) should be 
+    implemented using WebSocket connections in addition to these REST endpoints.
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@codeinterview.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development server
+  - url: https://api.codeinterview.com/v1
+    description: Production server
+
+tags:
+  - name: Sessions
+    description: Interview session management
+  - name: Participants
+    description: Session participant operations
+  - name: Code
+    description: Code snapshot and collaboration
+  - name: Health
+    description: API health and status
+
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Check if the API is running and healthy
+      operationId: healthCheck
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: integer
+                    format: int64
+                    example: 1701705600000
+
+  /sessions:
+    post:
+      tags:
+        - Sessions
+      summary: Create a new interview session
+      description: Creates a new interview session with the creator as the first participant
+      operationId: createSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: Session created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sessions/{sessionId}:
+    get:
+      tags:
+        - Sessions
+      summary: Get session details
+      description: Retrieve details of a specific interview session
+      operationId: getSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Session found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '410':
+          description: Session has expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      tags:
+        - Sessions
+      summary: Update session
+      description: Update session properties (code, language, etc.)
+      operationId: updateSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSessionRequest'
+      responses:
+        '200':
+          description: Session updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Sessions
+      summary: Delete session
+      description: Delete an interview session and all associated data
+      operationId: deleteSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '204':
+          description: Session deleted successfully
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sessions/{sessionId}/join:
+    post:
+      tags:
+        - Sessions
+      summary: Join a session
+      description: Join an existing interview session as a participant
+      operationId: joinSession
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinSessionRequest'
+      responses:
+        '200':
+          description: Successfully joined session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '410':
+          description: Session has expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sessions/{sessionId}/participants:
+    get:
+      tags:
+        - Participants
+      summary: Get session participants
+      description: Retrieve all participants in a session
+      operationId: getParticipants
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: Participants retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  participants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Participant'
+
+  /sessions/{sessionId}/participants/{participantId}:
+    delete:
+      tags:
+        - Participants
+      summary: Remove participant
+      description: Remove a participant from the session
+      operationId: removeParticipant
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/ParticipantId'
+      responses:
+        '204':
+          description: Participant removed successfully
+        '404':
+          description: Session or participant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      tags:
+        - Participants
+      summary: Update participant
+      description: Update participant information (e.g., online status)
+      operationId: updateParticipant
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/ParticipantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateParticipantRequest'
+      responses:
+        '200':
+          description: Participant updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Participant'
+        '404':
+          description: Session or participant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sessions/{sessionId}/code:
+    put:
+      tags:
+        - Code
+      summary: Save code snapshot
+      description: Save the current code and language for a session
+      operationId: saveCode
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeSnapshotRequest'
+      responses:
+        '200':
+          description: Code saved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ws/sessions/{sessionId}:
+    get:
+      tags:
+        - Code
+      summary: WebSocket connection for real-time collaboration
+      description: |
+        Establish a WebSocket connection for real-time collaboration events.
+        
+        **Events sent by client:**
+        - `code_change`: { code: string, userId: string }
+        - `language_change`: { language: string, userId: string }
+        - `cursor_position`: { position: object, userId: string }
+        
+        **Events sent by server:**
+        - `code_change`: { code: string, userId: string, timestamp: number }
+        - `language_change`: { language: string, userId: string, timestamp: number }
+        - `user_join`: { user: Participant, timestamp: number }
+        - `user_leave`: { userId: string, timestamp: number }
+        - `cursor_position`: { position: object, userId: string, timestamp: number }
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '101':
+          description: Switching Protocols - WebSocket connection established
+        '404':
+          description: Session not found
+        '410':
+          description: Session has expired
+
+components:
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      description: Unique session identifier (8-character hex string)
+      schema:
+        type: string
+        pattern: '^[a-f0-9]{8}$'
+        example: 'abc12345'
+
+    ParticipantId:
+      name: participantId
+      in: path
+      required: true
+      description: Unique participant identifier (UUID)
+      schema:
+        type: string
+        format: uuid
+        example: '550e8400-e29b-41d4-a716-446655440000'
+
+  schemas:
+    CreateSessionRequest:
+      type: object
+      required:
+        - creator
+      properties:
+        creator:
+          $ref: '#/components/schemas/UserInfo'
+        code:
+          type: string
+          description: Initial code content
+          example: 'console.log("Hello, World!");'
+        language:
+          type: string
+          description: Programming language
+          enum: [javascript, python, html]
+          default: javascript
+
+    JoinSessionRequest:
+      type: object
+      required:
+        - user
+      properties:
+        user:
+          $ref: '#/components/schemas/UserInfo'
+
+    UpdateSessionRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Updated code content
+        language:
+          type: string
+          description: Updated programming language
+          enum: [javascript, python, html]
+
+    CodeSnapshotRequest:
+      type: object
+      required:
+        - code
+        - language
+      properties:
+        code:
+          type: string
+          description: Code content
+        language:
+          type: string
+          description: Programming language
+          enum: [javascript, python, html]
+
+    UpdateParticipantRequest:
+      type: object
+      properties:
+        isOnline:
+          type: boolean
+          description: Participant online status
+
+    UserInfo:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique user identifier
+          example: '550e8400-e29b-41d4-a716-446655440000'
+        name:
+          type: string
+          description: User display name
+          example: 'John Doe'
+        color:
+          type: string
+          description: User avatar color (HSL format)
+          example: 'hsl(250, 84%, 54%)'
+
+    Participant:
+      type: object
+      required:
+        - id
+        - name
+        - role
+        - joinedAt
+        - isOnline
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique participant identifier
+        name:
+          type: string
+          description: Participant display name
+        role:
+          type: string
+          enum: [interviewer, candidate]
+          description: Participant role in the interview
+        color:
+          type: string
+          description: Participant avatar color
+        joinedAt:
+          type: integer
+          format: int64
+          description: Timestamp when participant joined (milliseconds)
+        isOnline:
+          type: boolean
+          description: Whether participant is currently online
+
+    Session:
+      type: object
+      required:
+        - id
+        - createdAt
+        - updatedAt
+        - expiresAt
+        - code
+        - language
+        - participants
+        - creatorId
+      properties:
+        id:
+          type: string
+          pattern: '^[a-f0-9]{8}$'
+          description: Unique session identifier
+          example: 'abc12345'
+        createdAt:
+          type: integer
+          format: int64
+          description: Session creation timestamp (milliseconds)
+        updatedAt:
+          type: integer
+          format: int64
+          description: Last update timestamp (milliseconds)
+        expiresAt:
+          type: integer
+          format: int64
+          description: Session expiration timestamp (milliseconds, 24 hours from creation)
+        code:
+          type: string
+          description: Current code content
+        language:
+          type: string
+          enum: [javascript, python, html]
+          description: Current programming language
+        participants:
+          type: array
+          items:
+            $ref: '#/components/schemas/Participant'
+          description: List of session participants
+        creatorId:
+          type: string
+          format: uuid
+          description: ID of the user who created the session
+
+    SessionResponse:
+      type: object
+      required:
+        - success
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          $ref: '#/components/schemas/Session'
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: string
+          description: Error message
+          example: 'Session not found'
+        code:
+          type: string
+          description: Error code for programmatic handling
+          example: 'SESSION_NOT_FOUND'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT token for authentication (optional for MVP).
+        Future implementation should include user authentication.
+
+# Note: Security is not enforced in MVP but should be added for production
+# security:
+#   - BearerAuth: []

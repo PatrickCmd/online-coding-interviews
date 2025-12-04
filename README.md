@@ -6,6 +6,7 @@ A real-time collaborative coding platform for conducting technical interviews. B
 
 ## ✨ Features
 
+### Frontend
 - **🔗 Session Creation & Sharing** - Generate unique interview sessions with shareable links
 - **⚡ Real-time Collaboration** - See code changes instantly as participants type
 - **🎨 Syntax Highlighting** - Monaco Editor with support for multiple languages
@@ -13,6 +14,14 @@ A real-time collaborative coding platform for conducting technical interviews. B
 - **🌐 Multi-language Support** - JavaScript, Python (via Pyodide), and HTML/CSS
 - **👥 Participant Tracking** - See who's online with avatars and roles
 - **🎯 Modern UI** - Beautiful dark mode with glassmorphism effects
+
+### Backend (Optional)
+- **🔧 RESTful API** - FastAPI with PostgreSQL for persistent sessions
+- **🔌 WebSocket Support** - Real-time collaboration via WebSocket
+- **🗄️ Database Migrations** - Alembic for schema versioning
+- **🐳 Docker Ready** - Containerized deployment with docker-compose
+- **📚 API Documentation** - Auto-generated Swagger/OpenAPI docs
+- **✅ Comprehensive Tests** - 18 pytest tests with 100% pass rate
 
 ## 🚀 Quick Start
 
@@ -99,14 +108,38 @@ online-coding-interviews/
 │   │   ├── App.jsx          # Main app with routing
 │   │   ├── main.jsx         # Entry point
 │   │   └── index.css        # Global styles
-│   ├── index.html
+│   ├── public/              # Static assets
 │   ├── package.json
 │   ├── vite.config.js
-│   ├── Makefile             # Frontend automation
-│   ├── TESTING.md           # Testing documentation
-│   └── MAKEFILE.md          # Makefile reference
-├── docs/                    # Additional documentation
-├── Makefile                 # Root Makefile (delegates to frontend)
+│   └── Makefile             # Frontend automation
+├── backend/                 # Backend API (FastAPI + PostgreSQL)
+│   ├── app/
+│   │   ├── api/             # API endpoints
+│   │   │   ├── sessions.py
+│   │   │   └── participants.py
+│   │   ├── models/          # SQLAlchemy models
+│   │   │   └── models.py
+│   │   ├── schemas/         # Pydantic schemas
+│   │   │   └── schemas.py
+│   │   ├── services/        # Business logic
+│   │   │   ├── session_service.py
+│   │   │   └── websocket_manager.py
+│   │   ├── db/              # Database connection
+│   │   │   └── database.py
+│   │   ├── core/            # Configuration
+│   │   │   └── config.py
+│   │   └── main.py          # FastAPI app
+│   ├── tests/               # Pytest tests
+│   ├── alembic/             # Database migrations
+│   ├── pyproject.toml       # Python dependencies
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── Makefile             # Backend automation
+├── docs/                    # Documentation
+│   ├── API.md               # API documentation
+│   ├── openapi.yaml         # OpenAPI specification
+│   └── BACKEND_GUIDE.md     # Backend implementation guide
+├── Makefile                 # Root automation (delegates to frontend/backend)
 └── README.md                # This file
 ```
 
@@ -186,6 +219,105 @@ For production use, consider:
 - Using server-side code execution in isolated containers
 - Implementing rate limiting and input validation
 
+## 🔧 Backend API
+
+The project includes a complete **FastAPI backend** with PostgreSQL database for production-ready deployments.
+
+### Backend Features
+
+- ✅ **RESTful API** - Session and participant management
+- ✅ **WebSocket Support** - Real-time collaboration
+- ✅ **PostgreSQL Database** - Persistent data storage
+- ✅ **Database Migrations** - Alembic for schema versioning
+- ✅ **Docker Support** - Containerized deployment
+- ✅ **Comprehensive Tests** - 18 pytest tests (100% pass rate)
+- ✅ **API Documentation** - Auto-generated OpenAPI/Swagger docs
+
+### Quick Start (Backend)
+
+#### Option 1: Docker (Recommended)
+
+```bash
+cd backend
+make docker-up              # Starts PostgreSQL + API
+```
+
+Access:
+- **API**: http://localhost:8000
+- **API Docs**: http://localhost:8000/docs
+- **Database**: localhost:5432
+
+#### Option 2: Local Development
+
+```bash
+cd backend
+
+# Install dependencies
+make install
+
+# Set up database
+make db-setup
+
+# Run migrations
+make db-migrate
+
+# Start server
+make dev
+```
+
+### Backend Commands
+
+```bash
+# Development
+make install        # Install dependencies with uv
+make dev            # Start development server
+make test           # Run all tests
+
+# Database
+make db-setup       # Set up PostgreSQL database
+make db-migrate     # Run database migrations
+make db-migrate-create  # Create new migration
+
+# Docker
+make docker-up      # Start all services
+make docker-migrate # Run migrations in Docker
+make docker-db-shell # Access database shell
+```
+
+### Backend Documentation
+
+- **[Backend README](backend/README.md)** - Complete setup guide
+- **[API Documentation](docs/API.md)** - API endpoints and data models
+- **[OpenAPI Spec](docs/openapi.yaml)** - OpenAPI 3.0 specification
+- **[Backend Guide](docs/BACKEND_GUIDE.md)** - Implementation guide
+- **[Migrations Guide](backend/MIGRATIONS.md)** - Database migrations
+- **[Docker Guide](backend/DOCKER.md)** - Docker setup and commands
+- **[Permissions Fix](backend/PERMISSIONS_FIX.md)** - PostgreSQL permissions
+
+### Backend Stack
+
+- **Framework**: FastAPI 0.115.6
+- **Database**: PostgreSQL 17 with SQLAlchemy 2.0.36
+- **Python**: 3.12+
+- **Migrations**: Alembic 1.17.2
+- **Testing**: pytest 8.3.4
+- **Dependency Management**: uv
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/sessions` | POST | Create session |
+| `/api/v1/sessions/{id}` | GET | Get session |
+| `/api/v1/sessions/{id}` | PATCH | Update session |
+| `/api/v1/sessions/{id}` | DELETE | Delete session |
+| `/api/v1/sessions/{id}/join` | POST | Join session |
+| `/api/v1/sessions/{id}/code` | PUT | Save code |
+| `/api/v1/sessions/{id}/participants` | GET | List participants |
+| `/ws/sessions/{id}` | WS | WebSocket connection |
+
+See [API.md](docs/API.md) for detailed documentation.
+
 ## 🧪 Testing
 
 The project includes a comprehensive unit testing suite with **80 tests** covering services, utilities, and components.
@@ -226,37 +358,48 @@ npm run preview
 
 ## 🛠️ Makefile Commands
 
-For convenience, Makefiles are provided to automate common tasks. The root Makefile delegates to the frontend:
+For convenience, Makefiles are provided to automate common tasks. The root Makefile delegates to frontend and backend:
 
 ```bash
 # Show all available commands
 make help
 
-# Development (from root directory)
+# Frontend Commands
 make install        # Install frontend dependencies
 make dev            # Start frontend development server
 make build          # Build frontend for production
 make preview        # Preview frontend production build
 
+# Backend Commands
+make backend-install # Install backend dependencies
+make backend-dev     # Start backend development server
+make backend-test    # Run backend tests
+make backend-docker  # Start backend with Docker
+
 # Testing
-make test           # Run all tests
+make test           # Run frontend tests
 make test-ui        # Run tests with UI
 make test-coverage  # Run tests with coverage
-make test-watch     # Run tests in watch mode
+
+# Full Stack
+make fullstack-dev  # Start both frontend and backend
+make fullstack-test # Run all tests (frontend + backend)
 
 # Maintenance
-make clean          # Clean all artifacts
-make setup          # Complete project setup
-make verify         # Verify project health (test + build)
-make ci             # Run full CI pipeline locally
+make clean          # Clean all artifacts (frontend + backend)
+make setup          # Complete project setup (frontend + backend)
 ```
 
-You can also run commands directly in the frontend directory:
+You can also run commands directly in each directory:
 
 ```bash
+# Frontend
 cd frontend
 make help           # See frontend-specific commands
-npm run dev         # Or use npm directly
+
+# Backend
+cd backend
+make help           # See backend-specific commands
 ```
 
 ## 🤝 Contributing

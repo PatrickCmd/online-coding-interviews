@@ -1,207 +1,214 @@
-import { API_DELAY } from '../utils/constants.js';
-import { simulateDelay } from '../utils/helpers.js';
+import axios from 'axios';
+import API_CONFIG from '../config/api.config.js';
 
 /**
- * Mock API Service
- * Centralizes all "backend" API calls with simulated network delays
+ * API Service
+ * Handles all HTTP requests to the backend API
  */
 
 class ApiService {
+    constructor() {
+        // Create axios instance with default config
+        this.client = axios.create({
+            baseURL: API_CONFIG.API_URL,
+            timeout: API_CONFIG.TIMEOUT,
+            headers: API_CONFIG.HEADERS,
+        });
+
+        // Request interceptor
+        this.client.interceptors.request.use(
+            (config) => {
+                // Add any auth tokens here if needed
+                return config;
+            },
+            (error) => {
+                return Promise.reject(error);
+            }
+        );
+
+        // Response interceptor
+        this.client.interceptors.response.use(
+            (response) => {
+                return response.data;
+            },
+            (error) => {
+                return this.handleError(error);
+            }
+        );
+    }
+
     /**
-     * Simulate an API call with delay
+     * Handle API errors
      */
-    async mockApiCall(callback) {
-        await simulateDelay(API_DELAY.MIN, API_DELAY.MAX);
-        return callback();
+    handleError(error) {
+        if (error.response) {
+            // Server responded with error status
+            const { status, data } = error.response;
+
+            // Return structured error
+            return Promise.reject({
+                success: false,
+                error: data?.error || data?.detail || 'An error occurred',
+                code: data?.code || `HTTP_${status}`,
+                status,
+            });
+        } else if (error.request) {
+            // Request made but no response
+            return Promise.reject({
+                success: false,
+                error: 'Unable to connect to server. Please ensure the backend is running.',
+                code: 'NETWORK_ERROR',
+            });
+        } else {
+            // Something else happened
+            return Promise.reject({
+                success: false,
+                error: error.message || 'An unexpected error occurred',
+                code: 'UNKNOWN_ERROR',
+            });
+        }
+    }
+
+    /**
+     * Health check
+     */
+    async healthCheck() {
+        try {
+            const response = await this.client.get(API_CONFIG.ENDPOINTS.HEALTH);
+            return { success: true, data: response };
+        } catch (error) {
+            throw error;
+        }
     }
 
     /**
      * Create a new session
      */
     async createSession(sessionData) {
-        return this.mockApiCall(() => {
-            return {
-                success: true,
-                data: sessionData
-            };
-        });
+        try {
+            const response = await this.client.post(
+                API_CONFIG.ENDPOINTS.SESSIONS,
+                sessionData
+            );
+            return response;
+        } catch (error) {
+            throw error;
+        }
     }
 
     /**
      * Get session by ID
      */
     async getSession(sessionId) {
-        return this.mockApiCall(() => {
-            const sessions = this.getStoredSessions();
-            const session = sessions.find(s => s.id === sessionId);
-
-            if (!session) {
-                return {
-                    success: false,
-                    error: 'Session not found'
-                };
-            }
-
-            return {
-                success: true,
-                data: session
-            };
-        });
+        try {
+            const response = await this.client.get(
+                API_CONFIG.ENDPOINTS.SESSION_BY_ID(sessionId)
+            );
+            return response;
+        } catch (error) {
+            throw error;
+        }
     }
 
     /**
      * Update session
      */
     async updateSession(sessionId, updates) {
-        return this.mockApiCall(() => {
-            const sessions = this.getStoredSessions();
-            const index = sessions.findIndex(s => s.id === sessionId);
-
-            if (index === -1) {
-                return {
-                    success: false,
-                    error: 'Session not found'
-                };
-            }
-
-            sessions[index] = { ...sessions[index], ...updates, updatedAt: Date.now() };
-            this.saveStoredSessions(sessions);
-
-            return {
-                success: true,
-                data: sessions[index]
-            };
-        });
+        try {
+            const response = await this.client.patch(
+                API_CONFIG.ENDPOINTS.SESSION_BY_ID(sessionId),
+                updates
+            );
+            return response;
+        } catch (error) {
+            throw error;
+        }
     }
 
     /**
      * Delete session
      */
     async deleteSession(sessionId) {
-        return this.mockApiCall(() => {
-            const sessions = this.getStoredSessions();
-            const filtered = sessions.filter(s => s.id !== sessionId);
-            this.saveStoredSessions(filtered);
-
-            return {
-                success: true
-            };
-        });
+        try {
+            await this.client.delete(
+                API_CONFIG.ENDPOINTS.SESSION_BY_ID(sessionId)
+            );
+            return { success: true };
+        } catch (error) {
+            throw error;
+        }
     }
 
     /**
-     * Add participant to session
+     * Join a session
      */
-    async addParticipant(sessionId, participant) {
-        return this.mockApiCall(() => {
-            const sessions = this.getStoredSessions();
-            const session = sessions.find(s => s.id === sessionId);
-
-            if (!session) {
-                return {
-                    success: false,
-                    error: 'Session not found'
-                };
-            }
-
-            if (!session.participants) {
-                session.participants = [];
-            }
-
-            // Check if participant already exists
-            const existingIndex = session.participants.findIndex(p => p.id === participant.id);
-            if (existingIndex !== -1) {
-                session.participants[existingIndex] = participant;
-            } else {
-                session.participants.push(participant);
-            }
-
-            this.saveStoredSessions(sessions);
-
-            return {
-                success: true,
-                data: session
-            };
-        });
-    }
-
-    /**
-     * Remove participant from session
-     */
-    async removeParticipant(sessionId, participantId) {
-        return this.mockApiCall(() => {
-            const sessions = this.getStoredSessions();
-            const session = sessions.find(s => s.id === sessionId);
-
-            if (!session) {
-                return {
-                    success: false,
-                    error: 'Session not found'
-                };
-            }
-
-            if (session.participants) {
-                session.participants = session.participants.filter(p => p.id !== participantId);
-            }
-
-            this.saveStoredSessions(sessions);
-
-            return {
-                success: true,
-                data: session
-            };
-        });
+    async joinSession(sessionId, userData) {
+        try {
+            const response = await this.client.post(
+                API_CONFIG.ENDPOINTS.JOIN_SESSION(sessionId),
+                { user: userData }
+            );
+            return response;
+        } catch (error) {
+            throw error;
+        }
     }
 
     /**
      * Save code snapshot
      */
-    async saveCodeSnapshot(sessionId, code, language) {
-        return this.mockApiCall(() => {
-            const sessions = this.getStoredSessions();
-            const session = sessions.find(s => s.id === sessionId);
-
-            if (!session) {
-                return {
-                    success: false,
-                    error: 'Session not found'
-                };
-            }
-
-            session.code = code;
-            session.language = language;
-            session.updatedAt = Date.now();
-
-            this.saveStoredSessions(sessions);
-
-            return {
-                success: true,
-                data: session
-            };
-        });
-    }
-
-    /**
-     * Helper: Get sessions from localStorage
-     */
-    getStoredSessions() {
+    async saveCode(sessionId, code, language) {
         try {
-            const stored = localStorage.getItem('codeinterview_sessions');
-            return stored ? JSON.parse(stored) : [];
-        } catch (e) {
-            console.error('Error reading sessions:', e);
-            return [];
+            const response = await this.client.put(
+                API_CONFIG.ENDPOINTS.SAVE_CODE(sessionId),
+                { code, language }
+            );
+            return response;
+        } catch (error) {
+            throw error;
         }
     }
 
     /**
-     * Helper: Save sessions to localStorage
+     * Get participants
      */
-    saveStoredSessions(sessions) {
+    async getParticipants(sessionId) {
         try {
-            localStorage.setItem('codeinterview_sessions', JSON.stringify(sessions));
-        } catch (e) {
-            console.error('Error saving sessions:', e);
+            const response = await this.client.get(
+                API_CONFIG.ENDPOINTS.PARTICIPANTS(sessionId)
+            );
+            return { success: true, data: response.participants };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Update participant
+     */
+    async updateParticipant(sessionId, participantId, updates) {
+        try {
+            const response = await this.client.patch(
+                API_CONFIG.ENDPOINTS.PARTICIPANT_BY_ID(sessionId, participantId),
+                updates
+            );
+            return { success: true, data: response };
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    /**
+     * Remove participant
+     */
+    async removeParticipant(sessionId, participantId) {
+        try {
+            await this.client.delete(
+                API_CONFIG.ENDPOINTS.PARTICIPANT_BY_ID(sessionId, participantId)
+            );
+            return { success: true };
+        } catch (error) {
+            throw error;
         }
     }
 }

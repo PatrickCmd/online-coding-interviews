@@ -1,28 +1,52 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import collaborationService from '../../services/collaboration.service';
+import websocketService from '../../services/websocket.service';
 import { MESSAGE_TYPES } from '../../utils/constants';
+
+// Mock the WebSocket service
+vi.mock('../../services/websocket.service', () => ({
+    default: {
+        connect: vi.fn(),
+        disconnect: vi.fn(),
+        send: vi.fn(),
+        on: vi.fn(() => vi.fn()), // Returns unsubscribe function
+        isConnected: vi.fn(() => true),
+        getConnectionState: vi.fn(() => 'connected'),
+        onConnectionStateChange: vi.fn(() => vi.fn()),
+    }
+}));
 
 describe('CollaborationService', () => {
     beforeEach(() => {
+        vi.clearAllMocks();
         collaborationService.cleanup();
     });
 
     describe('init', () => {
-        it('should initialize BroadcastChannel with session ID', () => {
-            const channel = collaborationService.init('test-session');
+        it('should connect to WebSocket with session ID', () => {
+            const result = collaborationService.init('test-session');
 
-            expect(channel).toBeDefined();
-            expect(collaborationService.channel).toBeDefined();
+            expect(websocketService.connect).toHaveBeenCalledWith('test-session');
+            expect(result).toBe(true);
         });
 
-        it('should cleanup previous channel before initializing new one', () => {
+        it('should cleanup previous connection before initializing new one', () => {
             collaborationService.init('session1');
-            const firstChannel = collaborationService.channel;
-
             collaborationService.init('session2');
-            const secondChannel = collaborationService.channel;
 
-            expect(secondChannel).not.toBe(firstChannel);
+            expect(websocketService.disconnect).toHaveBeenCalled();
+            expect(websocketService.connect).toHaveBeenCalledWith('session2');
+        });
+
+        it('should set up WebSocket listeners', () => {
+            collaborationService.init('test-session');
+
+            // Should subscribe to all event types
+            expect(websocketService.on).toHaveBeenCalledWith('code_change', expect.any(Function));
+            expect(websocketService.on).toHaveBeenCalledWith('language_change', expect.any(Function));
+            expect(websocketService.on).toHaveBeenCalledWith('user_join', expect.any(Function));
+            expect(websocketService.on).toHaveBeenCalledWith('user_leave', expect.any(Function));
+            expect(websocketService.on).toHaveBeenCalledWith('cursor_position', expect.any(Function));
         });
     });
 
@@ -67,114 +91,125 @@ describe('CollaborationService', () => {
         });
     });
 
-    describe('broadcast', () => {
-        it('should broadcast message through channel', () => {
-            collaborationService.init('test-session');
-            const postMessageSpy = vi.spyOn(collaborationService.channel, 'postMessage');
-
-            collaborationService.broadcast(MESSAGE_TYPES.CODE_CHANGE, { code: 'test' });
-
-            expect(postMessageSpy).toHaveBeenCalledWith({
-                type: MESSAGE_TYPES.CODE_CHANGE,
-                data: { code: 'test' }
-            });
-        });
-
-        it('should warn if channel not initialized', () => {
-            const consoleSpy = vi.spyOn(console, 'warn');
-
-            collaborationService.broadcast(MESSAGE_TYPES.CODE_CHANGE, { code: 'test' });
-
-            expect(consoleSpy).toHaveBeenCalledWith('Collaboration channel not initialized');
-        });
-    });
-
     describe('broadcastCodeChange', () => {
-        it('should broadcast code change with timestamp', () => {
+        it('should send code change via WebSocket', () => {
             collaborationService.init('test-session');
-            const broadcastSpy = vi.spyOn(collaborationService, 'broadcast');
 
             collaborationService.broadcastCodeChange('console.log("test")', 'user123');
 
-            expect(broadcastSpy).toHaveBeenCalledWith(
-                MESSAGE_TYPES.CODE_CHANGE,
-                expect.objectContaining({
+            expect(websocketService.send).toHaveBeenCalledWith(
+                'code_change',
+                {
                     code: 'console.log("test")',
-                    userId: 'user123',
-                    timestamp: expect.any(Number)
-                })
+                    userId: 'user123'
+                }
             );
         });
     });
 
     describe('broadcastLanguageChange', () => {
-        it('should broadcast language change with timestamp', () => {
+        it('should send language change via WebSocket', () => {
             collaborationService.init('test-session');
-            const broadcastSpy = vi.spyOn(collaborationService, 'broadcast');
 
             collaborationService.broadcastLanguageChange('python', 'user123');
 
-            expect(broadcastSpy).toHaveBeenCalledWith(
-                MESSAGE_TYPES.LANGUAGE_CHANGE,
-                expect.objectContaining({
+            expect(websocketService.send).toHaveBeenCalledWith(
+                'language_change',
+                {
                     language: 'python',
-                    userId: 'user123',
-                    timestamp: expect.any(Number)
-                })
+                    userId: 'user123'
+                }
             );
         });
     });
 
     describe('broadcastUserJoin', () => {
-        it('should broadcast user join event', () => {
+        it('should send user join event via WebSocket', () => {
             collaborationService.init('test-session');
-            const broadcastSpy = vi.spyOn(collaborationService, 'broadcast');
 
             const user = { id: 'user123', name: 'Test User' };
             collaborationService.broadcastUserJoin(user);
 
-            expect(broadcastSpy).toHaveBeenCalledWith(
-                MESSAGE_TYPES.USER_JOIN,
-                expect.objectContaining({
-                    user,
-                    timestamp: expect.any(Number)
-                })
+            expect(websocketService.send).toHaveBeenCalledWith(
+                'user_join',
+                { user }
             );
         });
     });
 
     describe('broadcastUserLeave', () => {
-        it('should broadcast user leave event', () => {
+        it('should send user leave event via WebSocket', () => {
             collaborationService.init('test-session');
-            const broadcastSpy = vi.spyOn(collaborationService, 'broadcast');
 
             collaborationService.broadcastUserLeave('user123');
 
-            expect(broadcastSpy).toHaveBeenCalledWith(
-                MESSAGE_TYPES.USER_LEAVE,
-                expect.objectContaining({
-                    userId: 'user123',
-                    timestamp: expect.any(Number)
-                })
+            expect(websocketService.send).toHaveBeenCalledWith(
+                'user_leave',
+                { userId: 'user123' }
+            );
+        });
+    });
+
+    describe('broadcastCursorPosition', () => {
+        it('should send cursor position via WebSocket', () => {
+            collaborationService.init('test-session');
+
+            const position = { line: 10, column: 5 };
+            collaborationService.broadcastCursorPosition(position, 'user123');
+
+            expect(websocketService.send).toHaveBeenCalledWith(
+                'cursor_position',
+                {
+                    position,
+                    userId: 'user123'
+                }
             );
         });
     });
 
     describe('cleanup', () => {
-        it('should close channel and clear listeners', () => {
+        it('should disconnect WebSocket and clear listeners', () => {
             collaborationService.init('test-session');
             collaborationService.subscribe(MESSAGE_TYPES.CODE_CHANGE, vi.fn());
 
             collaborationService.cleanup();
 
-            expect(collaborationService.channel).toBeNull();
+            expect(websocketService.disconnect).toHaveBeenCalled();
             expect(collaborationService.listeners.size).toBe(0);
         });
     });
 
     describe('isSupported', () => {
-        it('should return true when BroadcastChannel is available', () => {
+        it('should return true when WebSocket is available', () => {
             expect(collaborationService.isSupported()).toBe(true);
+        });
+    });
+
+    describe('isConnected', () => {
+        it('should return WebSocket connection status', () => {
+            const result = collaborationService.isConnected();
+
+            expect(websocketService.isConnected).toHaveBeenCalled();
+            expect(result).toBe(true);
+        });
+    });
+
+    describe('getConnectionState', () => {
+        it('should return WebSocket connection state', () => {
+            const result = collaborationService.getConnectionState();
+
+            expect(websocketService.getConnectionState).toHaveBeenCalled();
+            expect(result).toBe('connected');
+        });
+    });
+
+    describe('onConnectionStateChange', () => {
+        it('should subscribe to connection state changes', () => {
+            const callback = vi.fn();
+
+            collaborationService.onConnectionStateChange(callback);
+
+            expect(websocketService.onConnectionStateChange).toHaveBeenCalledWith(callback);
         });
     });
 
@@ -185,14 +220,10 @@ describe('CollaborationService', () => {
 
             collaborationService.subscribe(MESSAGE_TYPES.CODE_CHANGE, callback);
 
-            const message = {
-                type: MESSAGE_TYPES.CODE_CHANGE,
-                data: { code: 'test', userId: 'user123' }
-            };
+            const data = { code: 'test', userId: 'user123' };
+            collaborationService.handleMessage(MESSAGE_TYPES.CODE_CHANGE, data);
 
-            collaborationService.handleMessage(message);
-
-            expect(callback).toHaveBeenCalledWith(message.data);
+            expect(callback).toHaveBeenCalledWith(data);
         });
 
         it('should not throw if listener throws error', () => {
@@ -203,14 +234,26 @@ describe('CollaborationService', () => {
 
             collaborationService.subscribe(MESSAGE_TYPES.CODE_CHANGE, errorCallback);
 
-            const message = {
-                type: MESSAGE_TYPES.CODE_CHANGE,
-                data: { code: 'test' }
-            };
+            const data = { code: 'test' };
 
             expect(() => {
-                collaborationService.handleMessage(message);
+                collaborationService.handleMessage(MESSAGE_TYPES.CODE_CHANGE, data);
             }).not.toThrow();
+        });
+
+        it('should call multiple listeners for same message type', () => {
+            collaborationService.init('test-session');
+            const callback1 = vi.fn();
+            const callback2 = vi.fn();
+
+            collaborationService.subscribe(MESSAGE_TYPES.CODE_CHANGE, callback1);
+            collaborationService.subscribe(MESSAGE_TYPES.CODE_CHANGE, callback2);
+
+            const data = { code: 'test', userId: 'user123' };
+            collaborationService.handleMessage(MESSAGE_TYPES.CODE_CHANGE, data);
+
+            expect(callback1).toHaveBeenCalledWith(data);
+            expect(callback2).toHaveBeenCalledWith(data);
         });
     });
 });

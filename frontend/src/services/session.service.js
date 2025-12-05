@@ -1,10 +1,10 @@
 import apiService from './api.service.js';
-import { generateShortId, generateSessionLink } from '../utils/helpers.js';
-import { DEFAULT_LANGUAGE, SESSION_EXPIRATION, USER_ROLES } from '../utils/constants.js';
+import { generateSessionLink } from '../utils/helpers.js';
+import { DEFAULT_LANGUAGE, USER_ROLES } from '../utils/constants.js';
 
 /**
  * Session Service
- * Handles session creation, management, and persistence
+ * Handles session creation, management using backend API
  */
 
 class SessionService {
@@ -12,115 +12,159 @@ class SessionService {
      * Create a new interview session
      */
     async createSession(creatorInfo) {
-        const sessionId = generateShortId();
-        const now = Date.now();
-
-        const session = {
-            id: sessionId,
-            createdAt: now,
-            updatedAt: now,
-            expiresAt: now + SESSION_EXPIRATION,
-            code: DEFAULT_LANGUAGE.defaultCode,
-            language: DEFAULT_LANGUAGE.id,
-            participants: [
-                {
+        try {
+            const requestData = {
+                creator: {
                     id: creatorInfo.id,
                     name: creatorInfo.name,
-                    role: USER_ROLES.INTERVIEWER,
                     color: creatorInfo.color,
-                    joinedAt: now,
-                    isOnline: true
-                }
-            ],
-            creatorId: creatorInfo.id
-        };
-
-        const result = await apiService.createSession(session);
-
-        if (result.success) {
-            // Save to localStorage
-            const sessions = apiService.getStoredSessions();
-            sessions.push(session);
-            apiService.saveStoredSessions(sessions);
-
-            return {
-                success: true,
-                session,
-                link: generateSessionLink(sessionId)
+                },
+                code: DEFAULT_LANGUAGE.defaultCode,
+                language: DEFAULT_LANGUAGE.id,
             };
-        }
 
-        return result;
+            const result = await apiService.createSession(requestData);
+
+            if (result.success) {
+                return {
+                    success: true,
+                    session: result.data,
+                    link: generateSessionLink(result.data.id)
+                };
+            }
+
+            return result;
+        } catch (error) {
+            return error;
+        }
     }
 
     /**
      * Join an existing session
      */
     async joinSession(sessionId, userInfo) {
-        const result = await apiService.getSession(sessionId);
+        try {
+            const userData = {
+                id: userInfo.id,
+                name: userInfo.name,
+                color: userInfo.color,
+            };
 
-        if (!result.success) {
+            const result = await apiService.joinSession(sessionId, userData);
+
+            if (result.success) {
+                return {
+                    success: true,
+                    session: result.data
+                };
+            }
+
             return result;
+        } catch (error) {
+            // Handle specific error codes
+            if (error.status === 410) {
+                return {
+                    success: false,
+                    error: 'Session has expired'
+                };
+            }
+            if (error.status === 404) {
+                return {
+                    success: false,
+                    error: 'Session not found'
+                };
+            }
+            return error;
         }
-
-        const session = result.data;
-
-        // Check if session is expired
-        if (session.expiresAt < Date.now()) {
-            return {
-                success: false,
-                error: 'Session has expired'
-            };
-        }
-
-        // Add participant
-        const participant = {
-            id: userInfo.id,
-            name: userInfo.name,
-            role: USER_ROLES.CANDIDATE,
-            color: userInfo.color,
-            joinedAt: Date.now(),
-            isOnline: true
-        };
-
-        const addResult = await apiService.addParticipant(sessionId, participant);
-
-        if (addResult.success) {
-            return {
-                success: true,
-                session: addResult.data
-            };
-        }
-
-        return addResult;
     }
 
     /**
      * Leave a session
      */
     async leaveSession(sessionId, userId) {
-        return await apiService.removeParticipant(sessionId, userId);
+        try {
+            return await apiService.removeParticipant(sessionId, userId);
+        } catch (error) {
+            return error;
+        }
     }
 
     /**
      * Get session details
      */
     async getSession(sessionId) {
-        return await apiService.getSession(sessionId);
+        try {
+            return await apiService.getSession(sessionId);
+        } catch (error) {
+            if (error.status === 410) {
+                return {
+                    success: false,
+                    error: 'Session has expired'
+                };
+            }
+            if (error.status === 404) {
+                return {
+                    success: false,
+                    error: 'Session not found'
+                };
+            }
+            return error;
+        }
     }
 
     /**
      * Update session code
      */
     async updateCode(sessionId, code, language) {
-        return await apiService.saveCodeSnapshot(sessionId, code, language);
+        try {
+            return await apiService.saveCode(sessionId, code, language);
+        } catch (error) {
+            return error;
+        }
+    }
+
+    /**
+     * Update session
+     */
+    async updateSession(sessionId, updates) {
+        try {
+            return await apiService.updateSession(sessionId, updates);
+        } catch (error) {
+            return error;
+        }
     }
 
     /**
      * Delete session
      */
     async deleteSession(sessionId) {
-        return await apiService.deleteSession(sessionId);
+        try {
+            return await apiService.deleteSession(sessionId);
+        } catch (error) {
+            return error;
+        }
+    }
+
+    /**
+     * Get participants
+     */
+    async getParticipants(sessionId) {
+        try {
+            return await apiService.getParticipants(sessionId);
+        } catch (error) {
+            return error;
+        }
+    }
+
+    /**
+     * Update participant status
+     */
+    async updateParticipant(sessionId, participantId, updates) {
+        try {
+            return await apiService.updateParticipant(sessionId, participantId, updates);
+        } catch (error) {
+            return error;
+        }
     }
 
     /**
@@ -128,16 +172,6 @@ class SessionService {
      */
     isValidSessionId(sessionId) {
         return /^[a-f0-9]{8}$/.test(sessionId);
-    }
-
-    /**
-     * Clean up expired sessions
-     */
-    cleanupExpiredSessions() {
-        const sessions = apiService.getStoredSessions();
-        const now = Date.now();
-        const activeSessions = sessions.filter(s => s.expiresAt > now);
-        apiService.saveStoredSessions(activeSessions);
     }
 }
 

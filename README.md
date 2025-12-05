@@ -1,6 +1,6 @@
 # CodeInterview - Online Coding Interview Platform
 
-A real-time collaborative coding platform for conducting technical interviews. Built with React and Vite, featuring live code editing, syntax highlighting, and browser-based code execution.
+A full-stack real-time collaborative coding platform for conducting technical interviews. Built with React frontend and FastAPI backend, featuring live code editing, syntax highlighting, browser-based code execution, and persistent sessions with PostgreSQL.
 
 ![CodeInterview Platform](https://img.shields.io/badge/React-18+-blue) ![Vite](https://img.shields.io/badge/Vite-5+-purple) ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -15,36 +15,60 @@ A real-time collaborative coding platform for conducting technical interviews. B
 - **👥 Participant Tracking** - See who's online with avatars and roles
 - **🎯 Modern UI** - Beautiful dark mode with glassmorphism effects
 
-### Backend (Optional)
+### Backend
 - **🔧 RESTful API** - FastAPI with PostgreSQL for persistent sessions
-- **🔌 WebSocket Support** - Real-time collaboration via WebSocket
+- **🔌 WebSocket Support** - Real-time collaboration across devices via WebSocket
 - **🗄️ Database Migrations** - Alembic for schema versioning
 - **🐳 Docker Ready** - Containerized deployment with docker-compose
 - **📚 API Documentation** - Auto-generated Swagger/OpenAPI docs
-- **✅ Comprehensive Tests** - 18 pytest tests with 100% pass rate
+- **✅ Comprehensive Tests** - 18 backend + 84 frontend tests, all passing
+
+### Integration
+- **🔗 Full-Stack Architecture** - Frontend integrated with backend API
+- **⚡ Real-time Sync** - WebSocket replaces BroadcastChannel for cross-device collaboration
+- **💾 Persistent Sessions** - Sessions stored in PostgreSQL database
+- **🔄 Automatic Reconnection** - WebSocket auto-reconnect with exponential backoff
+- **🛡️ Error Handling** - Graceful degradation and user-friendly error messages
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - Node.js 16+ and npm
+- Docker and Docker Compose (for backend)
+- Python 3.12+ (for local backend development)
 
-### Installation
+### Full-Stack Setup (Recommended)
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/PatrickCmd/online-coding-interviews.git
 cd online-coding-interviews
 
-# Install dependencies
+# Start backend with Docker
+cd backend
+make docker-up
+
+# In a new terminal, start frontend
 cd frontend
 npm install
-
-# Start development server
 npm run dev
 ```
 
-The application will be available at **http://localhost:3000**
+**Access the application:**
+- Frontend: **http://localhost:3000**
+- Backend API: **http://localhost:8000**
+- API Docs: **http://localhost:8000/docs**
+
+### Frontend Only (Legacy Mode)
+
+> ⚠️ **Note**: Frontend-only mode is deprecated. The application now requires the backend for full functionality.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 ### Building for Production
 
@@ -92,15 +116,20 @@ online-coding-interviews/
 │   │   │   ├── LanguageSelector.jsx
 │   │   │   ├── ExecutionPanel.jsx
 │   │   │   └── ParticipantList.jsx
-│   │   ├── services/        # Mock backend services (centralized)
-│   │   │   ├── api.service.js
-│   │   │   ├── session.service.js
-│   │   │   ├── collaboration.service.js
-│   │   │   └── execution.service.js
+│   │   ├── services/        # Backend integration services
+│   │   │   ├── api.service.js         # Axios HTTP client
+│   │   │   ├── websocket.service.js   # WebSocket client
+│   │   │   ├── session.service.js     # Session management
+│   │   │   ├── collaboration.service.js # Real-time collaboration
+│   │   │   └── execution.service.js   # Code execution
+│   │   ├── config/          # Configuration
+│   │   │   └── api.config.js          # API endpoints
 │   │   ├── hooks/           # Custom React hooks
 │   │   │   ├── useSession.js
 │   │   │   ├── useCollaboration.js
-│   │   │   └── useCodeExecution.js
+│   │   │   ├── useCodeExecution.js
+│   │   │   ├── useConnectionState.js  # WebSocket connection monitoring
+│   │   │   └── index.js               # Barrel exports
 │   │   ├── utils/           # Utilities
 │   │   │   ├── constants.js
 │   │   │   └── helpers.js
@@ -143,7 +172,7 @@ online-coding-interviews/
 └── README.md                # This file
 ```
 
-### Tech Stack
+### Frontend Tech Stack
 
 | Component | Technology |
 |-----------|-----------|
@@ -151,31 +180,55 @@ online-coding-interviews/
 | Build Tool | Vite 5 |
 | Routing | React Router DOM 6 |
 | Code Editor | Monaco Editor |
+| HTTP Client | Axios |
+| WebSocket | Native WebSocket API |
 | Python Runtime | Pyodide (WebAssembly) |
-| Real-time Sync | BroadcastChannel API |
 | Styling | Vanilla CSS with CSS Variables |
 | State Management | React Hooks |
+| Testing | Vitest + React Testing Library |
 
-### Mock Backend
+### Backend Tech Stack
 
-All backend functionality is simulated and centralized in the `services/` directory:
+| Component | Technology |
+|-----------|-----------|
+| Framework | FastAPI |
+| Database | PostgreSQL 15 |
+| ORM | SQLAlchemy 2.0 |
+| Migrations | Alembic |
+| WebSocket | FastAPI WebSocket |
+| Validation | Pydantic |
+| Testing | Pytest |
+| Containerization | Docker + Docker Compose |
+| Package Manager | uv |
 
-- **api.service.js** - Central mock API with simulated network delays
-- **session.service.js** - Session CRUD operations with localStorage persistence
-- **collaboration.service.js** - Real-time synchronization using BroadcastChannel API
+### Backend Services
+
+The backend provides persistent session storage and real-time collaboration:
+
+- **api.service.js** - Axios HTTP client with error handling and retry logic
+- **websocket.service.js** - WebSocket client with automatic reconnection
+- **session.service.js** - Session management via backend API
+- **collaboration.service.js** - Real-time synchronization using WebSocket
 - **execution.service.js** - Browser-based code execution for multiple languages
 
 ## 🔧 How It Works
 
 ### Real-time Collaboration
 
-The application uses the **BroadcastChannel API** to synchronize code changes across browser tabs:
+The application uses **WebSocket** for real-time synchronization across devices:
 
 1. When a user types, changes are debounced (300ms)
-2. Changes are broadcast to all tabs with the same session ID
-3. Other users receive updates and see code changes in real-time
+2. Changes are sent to the backend via WebSocket
+3. Backend broadcasts updates to all connected clients in the session
+4. Other users receive updates and see code changes in real-time
+5. Automatic reconnection with exponential backoff if connection drops
 
-> **Note**: BroadcastChannel only works across tabs in the same browser. For production, implement WebSocket-based synchronization.
+**Connection States:**
+- `connecting` - Initial connection
+- `connected` - Successfully connected
+- `reconnecting` - Attempting to reconnect
+- `disconnected` - Not connected
+- `failed` - Max reconnection attempts reached
 
 ### Code Execution
 
@@ -187,11 +240,19 @@ Different execution strategies based on language:
 
 ### Session Management
 
-Sessions are stored in localStorage with:
+Sessions are stored in **PostgreSQL database** with:
 - Unique 8-character hex ID
-- 24-hour expiration
+- 24-hour expiration (enforced by backend)
 - Participant list with roles (interviewer/candidate)
 - Current code and language state
+- Timestamps (created, updated, expires)
+
+**Session Lifecycle:**
+1. Frontend creates session via `POST /api/v1/sessions`
+2. Backend generates ID, stores in PostgreSQL
+3. Users join via `POST /api/v1/sessions/{id}/join`
+4. Code updates saved via `PUT /api/v1/sessions/{id}/code`
+5. Sessions expire after 24 hours (410 Gone response)
 
 ## 🎨 Design System
 
@@ -206,18 +267,55 @@ The application features a modern dark mode design with:
 
 ## 🔒 Security Considerations
 
-> **⚠️ Important**: This is a demonstration/prototype application with the following limitations:
+> **⚠️ Important**: This application is designed for technical interviews with the following security model:
 
-- **Code Execution**: Runs in browser sandbox with security limitations
-- **No Authentication**: Sessions are accessible to anyone with the link
-- **Client-side Storage**: Data stored in localStorage (not persistent across devices)
-- **BroadcastChannel**: Only works within the same browser instance
+**Current Implementation:**
+- **Code Execution**: Runs in browser sandbox (JavaScript, Python via Pyodide, HTML/CSS)
+- **Session Access**: Sessions accessible to anyone with the link (no authentication)
+- **Data Persistence**: Sessions stored in PostgreSQL with 24-hour expiration
+- **WebSocket**: Real-time collaboration across devices
 
-For production use, consider:
-- Implementing proper backend with WebSocket support
-- Adding authentication and authorization
-- Using server-side code execution in isolated containers
-- Implementing rate limiting and input validation
+**For Production Use, Consider:**
+- Implementing JWT authentication and user accounts
+- Adding authorization (session creators can manage participants)
+- Server-side code execution in isolated Docker containers
+- Rate limiting on API endpoints
+- Input validation and sanitization
+- HTTPS/WSS for encrypted connections
+- CORS configuration for specific domains
+
+## 📚 Documentation
+
+### Frontend Documentation
+- [Frontend Integration Guide](frontend/INTEGRATION.md) - Frontend-backend integration details
+- [Frontend README](frontend/README.md) - Frontend-specific documentation
+
+### Backend Documentation
+- [Backend README](backend/README.md) - Backend setup and usage
+- [Backend Guide](docs/BACKEND_GUIDE.md) - Comprehensive backend implementation guide
+- [API Documentation](docs/API.md) - API endpoints and usage
+- [OpenAPI Specification](docs/openapi.yaml) - Complete API specification
+- [Database Migrations](backend/MIGRATIONS.md) - Alembic migration guide
+- [Docker Guide](backend/DOCKER.md) - Docker setup and commands
+- [Permissions Fix](backend/PERMISSIONS_FIX.md) - PostgreSQL permissions troubleshooting
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/health` | GET | Health check |
+| `/api/v1/sessions` | POST | Create session |
+| `/api/v1/sessions/{id}` | GET | Get session details |
+| `/api/v1/sessions/{id}` | PATCH | Update session |
+| `/api/v1/sessions/{id}` | DELETE | Delete session |
+| `/api/v1/sessions/{id}/join` | POST | Join session |
+| `/api/v1/sessions/{id}/code` | PUT | Save code |
+| `/api/v1/sessions/{id}/participants` | GET | Get participants |
+| `/api/v1/sessions/{id}/participants/{pid}` | PATCH | Update participant |
+| `/api/v1/sessions/{id}/participants/{pid}` | DELETE | Remove participant |
+| `/ws/sessions/{id}` | WS | WebSocket connection |
+
+**Interactive API Docs**: http://localhost:8000/docs (when backend is running)
 
 ## 🔧 Backend API
 
@@ -320,11 +418,13 @@ See [API.md](docs/API.md) for detailed documentation.
 
 ## 🧪 Testing
 
-The project includes a comprehensive unit testing suite with **80 tests** covering services, utilities, and components.
+The project includes comprehensive testing for both frontend and backend.
 
-### Run Tests
+### Frontend Tests
 
 ```bash
+cd frontend
+
 # Run all tests
 npm test
 
@@ -335,11 +435,45 @@ npm run test:ui
 npm run test:coverage
 ```
 
-### Test Coverage
+**Test Results:**
+- **84 tests** across 8 test files
+- **100% pass rate** ✅
+- Tests cover: API service, session service, collaboration service, WebSocket integration, utilities, and components
 
-- **Services**: 82.51% coverage
-- **Utilities**: 95.34% coverage
-- **Overall**: 80 tests, 100% pass rate ✅
+### Backend Tests
+
+```bash
+cd backend
+
+# Run all tests
+make test
+
+# Run with coverage
+make test-coverage
+
+# Run specific test file
+uv run pytest tests/test_sessions.py
+```
+
+**Test Results:**
+- **18 tests** covering API endpoints, WebSocket, and database operations
+- **100% pass rate** ✅
+- Tests include: Session CRUD, participant management, WebSocket connections, database migrations
+
+### Integration Testing
+
+To test the full stack:
+
+```bash
+# Start backend
+cd backend && make docker-up
+
+# In another terminal, run frontend tests
+cd frontend && npm test
+
+# Test API manually
+curl http://localhost:8000/api/v1/health
+```
 
 See [TESTING.md](TESTING.md) for detailed testing documentation.
 

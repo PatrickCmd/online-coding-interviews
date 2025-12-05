@@ -1,41 +1,76 @@
-import { BROADCAST_CHANNEL_NAME, MESSAGE_TYPES } from '../utils/constants.js';
+import websocketService from './websocket.service.js';
+import { MESSAGE_TYPES } from '../utils/constants.js';
 
 /**
  * Collaboration Service
- * Handles real-time synchronization using BroadcastChannel API
+ * Handles real-time synchronization using WebSocket
  */
 
 class CollaborationService {
     constructor() {
-        this.channel = null;
+        this.sessionId = null;
         this.listeners = new Map();
+        this.unsubscribers = [];
     }
 
     /**
-     * Initialize collaboration channel for a session
+     * Initialize collaboration for a session
      */
     init(sessionId) {
-        if (this.channel) {
+        if (this.sessionId) {
             this.cleanup();
         }
 
-        // Create a session-specific channel
-        this.channel = new BroadcastChannel(`${BROADCAST_CHANNEL_NAME}_${sessionId}`);
+        this.sessionId = sessionId;
 
-        // Set up message handler
-        this.channel.onmessage = (event) => {
-            this.handleMessage(event.data);
-        };
+        // Connect WebSocket
+        websocketService.connect(sessionId);
 
-        return this.channel;
+        // Subscribe to WebSocket messages
+        this.setupWebSocketListeners();
+
+        return true;
+    }
+
+    /**
+     * Setup WebSocket message listeners
+     */
+    setupWebSocketListeners() {
+        // Subscribe to code changes
+        const unsubCodeChange = websocketService.on('code_change', (message) => {
+            this.handleMessage(MESSAGE_TYPES.CODE_CHANGE, message.data);
+        });
+        this.unsubscribers.push(unsubCodeChange);
+
+        // Subscribe to language changes
+        const unsubLangChange = websocketService.on('language_change', (message) => {
+            this.handleMessage(MESSAGE_TYPES.LANGUAGE_CHANGE, message.data);
+        });
+        this.unsubscribers.push(unsubLangChange);
+
+        // Subscribe to user join
+        const unsubUserJoin = websocketService.on('user_join', (message) => {
+            this.handleMessage(MESSAGE_TYPES.USER_JOIN, message.data);
+        });
+        this.unsubscribers.push(unsubUserJoin);
+
+        // Subscribe to user leave
+        const unsubUserLeave = websocketService.on('user_leave', (message) => {
+            this.handleMessage(MESSAGE_TYPES.USER_LEAVE, message.data);
+        });
+        this.unsubscribers.push(unsubUserLeave);
+
+        // Subscribe to cursor position
+        const unsubCursor = websocketService.on('cursor_position', (message) => {
+            this.handleMessage(MESSAGE_TYPES.CURSOR_POSITION, message.data);
+        });
+        this.unsubscribers.push(unsubCursor);
     }
 
     /**
      * Handle incoming messages
      */
-    handleMessage(message) {
-        const { type, data } = message;
-
+    handleMessage(type, data) {
         // Call all registered listeners for this message type
         const listeners = this.listeners.get(type) || [];
         listeners.forEach(callback => {
@@ -68,68 +103,96 @@ class CollaborationService {
     }
 
     /**
-     * Broadcast a message to all connected clients
-     */
-    broadcast(type, data) {
-        if (!this.channel) {
-            console.warn('Collaboration channel not initialized');
-            return;
-        }
-
-        this.channel.postMessage({ type, data });
-    }
-
-    /**
      * Broadcast code change
      */
     broadcastCodeChange(code, userId) {
-        this.broadcast(MESSAGE_TYPES.CODE_CHANGE, { code, userId, timestamp: Date.now() });
+        websocketService.send('code_change', {
+            code,
+            userId,
+        });
     }
 
     /**
      * Broadcast language change
      */
     broadcastLanguageChange(language, userId) {
-        this.broadcast(MESSAGE_TYPES.LANGUAGE_CHANGE, { language, userId, timestamp: Date.now() });
+        websocketService.send('language_change', {
+            language,
+            userId,
+        });
     }
 
     /**
      * Broadcast user join
      */
     broadcastUserJoin(user) {
-        this.broadcast(MESSAGE_TYPES.USER_JOIN, { user, timestamp: Date.now() });
+        websocketService.send('user_join', {
+            user,
+        });
     }
 
     /**
      * Broadcast user leave
      */
     broadcastUserLeave(userId) {
-        this.broadcast(MESSAGE_TYPES.USER_LEAVE, { userId, timestamp: Date.now() });
+        websocketService.send('user_leave', {
+            userId,
+        });
     }
 
     /**
      * Broadcast cursor position (optional feature)
      */
     broadcastCursorPosition(position, userId) {
-        this.broadcast(MESSAGE_TYPES.CURSOR_POSITION, { position, userId, timestamp: Date.now() });
+        websocketService.send('cursor_position', {
+            position,
+            userId,
+        });
     }
 
     /**
-     * Cleanup and close channel
+     * Get connection state
+     */
+    getConnectionState() {
+        return websocketService.getConnectionState();
+    }
+
+    /**
+     * Check if connected
+     */
+    isConnected() {
+        return websocketService.isConnected();
+    }
+
+    /**
+     * Subscribe to connection state changes
+     */
+    onConnectionStateChange(callback) {
+        return websocketService.onConnectionStateChange(callback);
+    }
+
+    /**
+     * Cleanup and close connection
      */
     cleanup() {
-        if (this.channel) {
-            this.channel.close();
-            this.channel = null;
-        }
+        // Unsubscribe from all WebSocket messages
+        this.unsubscribers.forEach(unsub => unsub());
+        this.unsubscribers = [];
+
+        // Clear local listeners
         this.listeners.clear();
+
+        // Disconnect WebSocket
+        websocketService.disconnect();
+
+        this.sessionId = null;
     }
 
     /**
      * Check if collaboration is supported
      */
     isSupported() {
-        return typeof BroadcastChannel !== 'undefined';
+        return typeof WebSocket !== 'undefined';
     }
 }
 

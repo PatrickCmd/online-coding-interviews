@@ -78,6 +78,27 @@ npm run build
 npm run preview
 ```
 
+### Cloud Deployment
+
+The application is ready for deployment to Render cloud platform.
+
+**Quick Deploy:**
+
+1. Push code to GitHub
+2. Go to [Render Dashboard](https://dashboard.render.com)
+3. Click "New" → "Blueprint"
+4. Connect repository
+5. Render will detect `render.yaml` and deploy automatically
+
+**What Gets Deployed:**
+- PostgreSQL Database (managed)
+- Backend API (FastAPI + Docker)
+- Frontend (Static Site)
+
+**Cost:** $0/month (free tier for 90 days), then $7-14/month
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
+
 ## 📖 Usage
 
 ### Creating an Interview Session

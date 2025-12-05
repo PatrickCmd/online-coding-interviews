@@ -15,8 +15,16 @@ class Settings(BaseSettings):
         "postgresql://codeinterview:password@localhost:5432/codeinterview"
     )
 
-    # CORS
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    # CORS - Support multiple origins for development and production
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://codeinterview.onrender.com",
+        "https://codeinterview-frontend.onrender.com"
+    ]
+    
+    # Frontend URL (for production)
+    FRONTEND_URL: str = "http://localhost:3000"
 
     # Session
     SESSION_EXPIRATION_HOURS: int = 24
@@ -25,6 +33,9 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "CodeInterview API"
     VERSION: str = "1.0.0"
+    
+    # Environment
+    ENVIRONMENT: str = "development"
 
     class Config:
         env_file = ".env"

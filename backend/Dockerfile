@@ -14,8 +14,16 @@ RUN uv sync --frozen
 # Copy application code
 COPY app ./app
 
+# Copy Alembic configuration and migrations
+COPY alembic.ini ./
+COPY alembic ./alembic
+
+# Copy startup script
+COPY start.sh ./
+RUN chmod +x start.sh
+
 # Expose port
 EXPOSE 8000
 
-# Run application
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run application with startup script
+CMD ["./start.sh"]

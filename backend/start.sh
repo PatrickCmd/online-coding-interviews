@@ -5,7 +5,7 @@ echo "🚀 Starting CodeInterview API..."
 
 # Wait for database to be ready
 echo "⏳ Waiting for database connection..."
-python -c "
+uv run python -c "
 import time
 import sys
 from sqlalchemy import create_engine

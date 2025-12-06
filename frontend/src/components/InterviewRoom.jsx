@@ -82,6 +82,31 @@ const InterviewRoom = () => {
         }
     }, [currentSession, currentUser, broadcastJoin]);
 
+    // Fetch participants when session is loaded
+    useEffect(() => {
+        const fetchParticipants = async () => {
+            if (currentSession?.id) {
+                try {
+                    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/v1/sessions/${currentSession.id}/participants`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        setParticipants(data.participants || []);
+                    }
+                } catch (error) {
+                    console.error('Failed to fetch participants:', error);
+                }
+            }
+        };
+
+        fetchParticipants();
+
+        // Poll for participants every 5 seconds to keep the list updated
+        const interval = setInterval(fetchParticipants, 5000);
+
+        return () => clearInterval(interval);
+    }, [currentSession?.id]);
+
+
     // Handle code change
     const handleCodeChange = (newCode) => {
         setCode(newCode);

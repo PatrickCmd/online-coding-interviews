@@ -13,15 +13,35 @@
 Render's static site hosting doesn't know how to handle client-side routing. When you visit `/interview/16ae4aad` directly, Render looks for a file at that path and returns 404.
 
 **Solution:**
-Created `frontend/public/_redirects` file with:
+
+React Router requires the server to always serve `index.html` for ALL non-static routes.
+
+**Option 1: Render Dashboard Configuration (Recommended)**
+
+1. Go to [Render Dashboard](https://dashboard.render.com)
+2. Click on your **Static Site** (codeinterview-frontend)
+3. Go to "Redirects/Rewrites" tab
+4. Click "Add Rule"
+5. Configure the rule:
+   - **Source**: `/*`
+   - **Destination**: `/index.html`
+   - **Type**: `Rewrite`
+6. Click "Save"
+
+This forces all routes to load the React app, and React Router handles what to render.
+
+**Option 2: _redirects File (Alternative)**
+
+Create `frontend/public/_redirects` with:
 ```
 /*    /index.html   200
 ```
 
-This tells Render to serve `index.html` for all routes, allowing React Router to handle routing client-side.
+> **Note**: This file is included in the project but may not work automatically on all Render configurations. The dashboard method (Option 1) is more reliable.
 
 **Files Changed:**
-- `frontend/public/_redirects` (NEW)
+- `frontend/public/_redirects` (included for reference)
+- Render Dashboard configuration (manual setup required)
 
 ---
 
@@ -50,19 +70,29 @@ Updated `InterviewRoom.jsx` to:
 
 ## Deployment Instructions
 
-1. **Commit changes:**
+1. **Configure Render Static Site (One-time setup):**
+   
+   Go to Render Dashboard → codeinterview-frontend → Redirects/Rewrites:
+   
+   | Source | Destination | Type |
+   |--------|-------------|------|
+   | `/*` | `/index.html` | Rewrite |
+   
+   This enables Single Page App (SPA) routing.
+
+2. **Commit changes:**
    ```bash
-   git add frontend/public/_redirects frontend/src/components/InterviewRoom.jsx
-   git commit -m "Fix: Add _redirects for routing and fetch participants from API"
+   git add frontend/src/components/InterviewRoom.jsx PRODUCTION-FIXES.md
+   git commit -m "Fix: Fetch participants from API with polling"
    git push origin main
    ```
 
-2. **Verify deployment:**
+3. **Verify deployment:**
    - GitHub Actions will run tests
    - If tests pass, deploys to Render automatically
    - Wait ~5 minutes for deployment
 
-3. **Test fixes:**
+4. **Test fixes:**
    - **Routing:** Copy a session link and paste directly in new browser tab
    - **Participants:** Create session, join from another browser, verify count updates
 

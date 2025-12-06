@@ -105,8 +105,24 @@ If you prefer manual setup or need to customize:
    | `VITE_API_BASE_URL` | `https://codeinterview-api.onrender.com` |
    | `VITE_WS_BASE_URL` | `wss://codeinterview-api.onrender.com` |
 
-5. Click "Create Static Site"
-6. Wait for deployment (~3-5 minutes)
+5. **Configure SPA Routing (IMPORTANT)**:
+   
+   After the static site is created:
+   
+   a. Go to your static site → "Redirects/Rewrites" tab
+   
+   b. Click "Add Rule" and configure:
+   
+   | Source | Destination | Type |
+   |--------|-------------|------|
+   | `/*` | `/index.html` | Rewrite |
+   
+   c. Click "Save"
+   
+   **Why this is needed:** React Router uses client-side routing. Without this rule, direct navigation to routes like `/interview/abc123` will return 404. This rewrite rule tells Render to serve `index.html` for all routes, allowing React Router to handle the routing.
+
+6. Click "Create Static Site"
+7. Wait for deployment (~3-5 minutes)
 
 #### Step 4: Update Backend CORS
 
